@@ -67,7 +67,31 @@ func CreateAgentsTable() error {
 	return nil
 }
 
+// CreateChatHistoryTable creates the chat_history table if it does not exist
+func CreateChatHistoryTable() error {
+	query := `
+	CREATE TABLE IF NOT EXISTS chat_history (
+		id SERIAL PRIMARY KEY,
+		agent_id INTEGER NOT NULL,
+		role VARCHAR(50) NOT NULL,
+		content TEXT NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (agent_id) REFERENCES agents(id)
+	);`
+	_, err := db.Exec(query)
+	if err != nil {
+		return fmt.Errorf("error creating chat_history table: %w", err)
+	}
+	log.Println("Chat history table created or already exists")
+	return nil
+}
+
 // Exec executes a query without returning any rows
 func Exec(query string, args ...interface{}) (sql.Result, error) {
 	return db.Exec(query, args...)
+}
+
+// GetDB returns the database connection
+func GetDB() *sql.DB {
+	return db
 }

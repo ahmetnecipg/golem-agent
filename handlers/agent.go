@@ -4,10 +4,8 @@ import (
 	"ai-agent-app/models"
 	"ai-agent-app/services"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
-	"time"
 )
 
 // CreateAgentResponse represents the structure of the create agent response
@@ -30,11 +28,8 @@ func CreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate a unique ID for the agent (this can be improved)
-	agent.ID = generateUniqueID() // Implement this function to generate a unique ID
-
 	// Call the service to save the agent to the database
-	if err := services.CreateAgent(agent); err != nil {
+	if err := services.CreateAgent(&agent); err != nil {
 		http.Error(w, "Error saving agent to database", http.StatusInternalServerError)
 		log.Printf("Error saving agent: %v", err)
 		return
@@ -49,26 +44,17 @@ func CreateAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateDefaultAgent creates a default agent and returns its ID
-func CreateDefaultAgent() (string, error) {
-	// You can customize the agent properties here
+func CreateDefaultAgent() (int, error) {
+	// Create a default agent
 	agent := models.Agent{
 		Name: "Console Agent",
-		// Remove the Description field since it doesn't exist in the models.Agent struct
-		// Add other properties as needed based on the actual fields in models.Agent
+		Type: "openai",
 	}
 
-	// Generate a unique ID for the agent
-	agent.ID = generateUniqueID()
-
-	// Store the agent (this depends on your existing implementation)
-	// For example:
-	// database.SaveAgent(agent)
+	// Save the agent to the database
+	if err := services.CreateAgent(&agent); err != nil {
+		return 0, err
+	}
 
 	return agent.ID, nil
-}
-
-// generateUniqueID creates a unique identifier for the agent
-func generateUniqueID() string {
-	// Simple implementation - in a real app, use a proper UUID library
-	return fmt.Sprintf("agent-%d", time.Now().UnixNano())
 }

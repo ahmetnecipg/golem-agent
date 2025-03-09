@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ai-agent-app/database"
 	"ai-agent-app/handlers"
 	"ai-agent-app/services"
 	"bufio"
@@ -24,6 +25,18 @@ func main() {
 	fmt.Println("AI Agent Console")
 	fmt.Println("----------------")
 
+	// Initialize database connection
+	database.InitDB()
+	defer database.CloseDB()
+
+	// Create necessary tables
+	if err := database.CreateAgentsTable(); err != nil {
+		log.Fatalf("Failed to create agents table: %v", err)
+	}
+	if err := database.CreateChatHistoryTable(); err != nil {
+		log.Fatalf("Failed to create chat history table: %v", err)
+	}
+
 	// For debugging - print the API key (remove in production)
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
@@ -41,7 +54,7 @@ func main() {
 		log.Fatalf("Failed to create agent: %v", err)
 	}
 
-	fmt.Printf("Agent created with ID: %s\n", agentID)
+	fmt.Printf("Agent created with ID: %d\n", agentID)
 	fmt.Println("Start chatting with the agent (type 'exit' to quit, 'clear' to clear history):")
 
 	scanner := bufio.NewScanner(os.Stdin)

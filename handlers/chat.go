@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"ai-agent-app/services" // Import the services package
 
@@ -24,11 +25,17 @@ var webChatHistory = services.NewChatHistory(10)
 // ChatWithAgent handles chat requests with the agent
 func ChatWithAgent(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	agentID := vars["agentID"]
+	agentIDStr := vars["agentID"]
 
-	// Validate agentID
-	if agentID == "" {
+	// Validate and convert agentID to integer
+	if agentIDStr == "" {
 		http.Error(w, "agentID is required", http.StatusBadRequest)
+		return
+	}
+	
+	agentID, err := strconv.Atoi(agentIDStr)
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
 		return
 	}
 
@@ -54,41 +61,24 @@ func ChatWithAgent(w http.ResponseWriter, r *http.Request) {
 	// Get the conversation history
 	history := webChatHistory.GetHistory(agentID)
 
-	var responseMessage string
-	var err error
+	// Use the OpenAI API to generate a response
+	responseMessage, err := services.SendMessageToOpenAI(
+		os.Getenv("OPENAI_API_KEY"),
+		requestBody.Message,
+		history,
+	)
 
-	if agentID[:6] == "openai" {
-		// Send message to OpenAI
-		responseMessage, err = services.SendMessageToOpenAI(
-			os.Getenv("OPENAI_API_KEY"),
-			requestBody.Message,
-			history, // Pass the message history
-		)
-
-		if err != nil {
-			http.Error(w, "Error communicating with the agent", http.StatusInternalServerError)
-			log.Printf("Error communicating with agent %s: %v", agentID, err)
-			return
-		}
-
-		// Add the assistant's response to history
-		webChatHistory.AddMessage(agentID, "assistant", responseMessage)
-	} else if agentID[:4] == "grok" {
-		responseMessage, err = services.SendMessageToGrok(requestBody.Message)
-	} else {
-		http.Error(w, "Unknown agent type", http.StatusBadRequest)
-		return
-	}
-
-	// Handle any errors from the service call
 	if err != nil {
 		http.Error(w, "Error communicating with the agent", http.StatusInternalServerError)
-		log.Printf("Error communicating with agent %s: %v", agentID, err)
+		log.Printf("Error communicating with agent %d: %v", agentID, err)
 		return
 	}
 
+	// Add the assistant's response to history
+	webChatHistory.AddMessage(agentID, "assistant", responseMessage)
+
 	// Log the chat request
-	log.Printf("Chat request for agentID: %s, message: %s", agentID, requestBody.Message)
+	log.Printf("Chat request for agentID: %d, message: %s", agentID, requestBody.Message)
 
 	// Send response
 	response := ChatResponse{
@@ -100,25 +90,23 @@ func ChatWithAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 // ConsoleChatWithAgent handles chat interactions from the console
-func ConsoleChatWithAgent(agentID string, message string, chatHistory *services.ChatHistory) (string, error) {
-	var responseMessage string
-	var err error
-
+func ConsoleChatWithAgent(agentID int, message string, chatHistory *services.ChatHistory) (string, error) {
 	// Get the conversation history
 	history := chatHistory.GetHistory(agentID)
+	
 	// Use the OpenAI API to generate a response
-	responseMessage, err = services.SendMessageToOpenAI(
+	responseMessage, err := services.SendMessageToOpenAI(
 		os.Getenv("OPENAI_API_KEY"),
 		message,
 		history,
 	)
 
 	if err != nil {
-		return "", fmt.Errorf("error communicating with agent %s: %v", agentID, err)
+		return "", fmt.Errorf("error communicating with agent %d: %v", agentID, err)
 	}
 
 	// Log the console chat request
-	log.Printf("Console chat request for agentID: %s, message: %s", agentID, message)
+	log.Printf("Console chat request for agentID: %d, message: %s", agentID, message)
 
 	return responseMessage, nil
 }
